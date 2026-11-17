@@ -15,11 +15,14 @@ describe('Test 1109 - Export empty tables to excel sheets', function () {
 		alasql('drop database test' + test);
 	});
 
-	it('A) Export empty tables to excel sheets', function () {
+	it('A) Export empty tables to excel sheets', async function () {
 		var res = [];
 		var opts = [{sheetid: 'a'}, {sheetid: 'b'}];
 		res.push(
-			alasql('SELECT INTO XLSX("' + __dirname + '/restest1109.xlsx",?) FROM ?', [opts, [[], []]])
+			await alasql.promise('SELECT INTO XLSX("' + __dirname + '/restest1109.xlsx",?) FROM ?', [
+				opts,
+				[[], []],
+			])
 		);
 		assert.deepStrictEqual(res, [1]);
 	});

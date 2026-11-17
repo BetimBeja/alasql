@@ -443,7 +443,7 @@ yy.Select = class Select {
 			// Note the callback function has the data and error reversed due to existing code in promiseExec which has the
 			// err and data swapped.  This trickles down into alasql.exec and further. Rather than risk breaking the whole thing,
 			// the (data, err) standard is maintained here.
-			var res1 = queryfn(query, oldscope, function (res, err) {
+			var statementCb = function (res, err) {
 				if (err) {
 					if (cb) {
 						return cb(null, err);
@@ -574,8 +574,10 @@ yy.Select = class Select {
 					cb(res2);
 				}
 				return res2;
-			});
-			return res1;
+			};
+			// Lets asynchronous INTO functions (like XLSX) detect calls made without a callback
+			statementCb.sync = !cb;
+			return queryfn(query, oldscope, statementCb);
 		};
 
 		statement.query = query;

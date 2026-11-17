@@ -10,6 +10,8 @@
 	  slower than SLOW ms is recorded as it is ("single run"), so a slow old release cannot hold up
 	  the whole history.
 	- Every answer goes into a sink, so the JIT cannot drop the work.
+	- Cases with `async: true` return a promise from `run`; it is awaited inside the timed section,
+	  so the time covers the whole operation. Other cases are timed without any await.
 	- Cases with `heap: true` also record what one run leaves on the heap while its answer is
 	  still held, in MB, between two full GCs (Node needs --expose-gc; history.js passes it).
 	The data comes from a seeded generator, so every build and runtime gets the same rows.
@@ -110,7 +112,7 @@ function describe(dim) {
 
 // only: texts from --case=; a case runs when its name contains one of them
 // scale: multiplies the time per round (TARGET) and the thresholds, as bench.js --scale does
-function run(alasql, dim, expected, only, scale = 1) {
+async function run(alasql, dim, expected, only, scale = 1) {
 	const target = TARGET * scale;
 	const slow = SLOW * scale;
 	const fewer = 250 * scale;
@@ -125,12 +127,14 @@ function run(alasql, dim, expected, only, scale = 1) {
 		const key = keyOf(dim, c);
 		if (only && only.length && !only.some(o => key.toLowerCase().includes(o))) continue;
 		const params = c.params ? c.params(ctx) : [];
-		const once = c.run ? () => c.run(alasql, ctx) : () => alasql(c.sql, params);
+		const call = c.run ? () => c.run(alasql, ctx) : () => alasql(c.sql, params);
+		// sync cases keep a plain call, so their timing has no promise overhead
+		const once = c.async ? async () => await call() : call;
 		try {
 			if (c.init) c.init(alasql, ctx);
 			if (c.prepare) c.prepare(alasql, ctx);
 			const t0 = now();
-			let res = once();
+			let res = c.async ? await once() : once();
 			const first = now() - t0;
 			const d = digest(c.check ? c.check(alasql, ctx, res) : res, c);
 			digests[key] = d;
@@ -157,7 +161,7 @@ function run(alasql, dim, expected, only, scale = 1) {
 					for (let i = 0; i < iters; i++) {
 						if (c.prepare) c.prepare(alasql, ctx);
 						const s = now();
-						const x = once();
+						const x = c.async ? await once() : once();
 						t += now() - s;
 						sink ^= size(x);
 					}
@@ -171,7 +175,7 @@ function run(alasql, dim, expected, only, scale = 1) {
 				if (c.prepare) c.prepare(alasql, ctx);
 				gc();
 				const h0 = heapUsed();
-				const x = once();
+				const x = c.async ? await once() : once();
 				gc();
 				// below 0 means the GC also freed garbage from before the run: nothing was left over
 				results[key + ' [heap]'] = canGc ? Math.max(0, (heapUsed() - h0) / 2 ** 20) : null;

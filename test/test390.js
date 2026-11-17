@@ -16,7 +16,7 @@ describe('Test 390 Export nested array to XLSX', function () {
 		done();
 	});
 
-	it('2. Prepare tables', function (done) {
+	it('2. Prepare tables', async function () {
 		var data = [
 			{
 				a: 'test',
@@ -40,7 +40,7 @@ describe('Test 390 Export nested array to XLSX', function () {
 			},
 		];
 		if (typeof exports === 'object') {
-			var res = alasql(
+			var res = await alasql.promise(
 				'SEARCH / AS @p b / CLONEDEEP() SET(a=@p->a) INTO XLSX("' +
 					__dirname +
 					'/restest390a.xlsx",{headers:true}) FROM ?',
@@ -48,7 +48,6 @@ describe('Test 390 Export nested array to XLSX', function () {
 			);
 			assert(res == 1);
 		}
-		done();
 	});
 
 	it('99. DROP DATABASE', function (done) {

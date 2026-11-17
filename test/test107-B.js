@@ -8,25 +8,22 @@ if (typeof exports === 'object') {
 
 describe('Test 107-B - Update existing Excel spreadsheet with sourcefilename and range', function () {
 	if (typeof exports === 'object') {
-		it('1. Create initial XLSX file with data', function (done) {
+		it('1. Create initial XLSX file with data', async function () {
 			var data = [
 				{a: 1, b: 2, c: 3},
 				{a: 4, b: 5, c: 6},
 				{a: 7, b: 8, c: 9},
 			];
-			alasql('SELECT * INTO XLSX("' + __dirname + '/test107-B-base.xlsx", {headers:true}) FROM ?', [
-				data,
-			]);
+			await alasql.promise(
+				'SELECT * INTO XLSX("' + __dirname + '/test107-B-base.xlsx", {headers:true}) FROM ?',
+				[data]
+			);
 			// Verify file was created and read back content
 			assert(fs.existsSync(__dirname + '/test107-B-base.xlsx'));
-			alasql(
-				'SELECT * FROM XLSX("' + __dirname + '/test107-B-base.xlsx", {headers:true})',
-				[],
-				function (res) {
-					assert.deepStrictEqual(res, data);
-					done();
-				}
+			var res = await alasql.promise(
+				'SELECT * FROM XLSX("' + __dirname + '/test107-B-base.xlsx", {headers:true})'
 			);
+			assert.deepStrictEqual(res, data);
 		});
 
 		it('2. Update existing file at specific range with sourcefilename', function (done) {
@@ -116,51 +113,54 @@ describe('Test 107-B - Update existing Excel spreadsheet with sourcefilename and
 			);
 		});
 
-		it('4. Overwrite same file with sourcefilename pointing to itself', function (done) {
+		it('4. Overwrite same file with sourcefilename pointing to itself', async function () {
 			// First create a file
 			var initialData = [{name: 'John', age: 25}];
-			alasql('SELECT * INTO XLSX("' + __dirname + '/test107-B-self.xlsx", {headers:true}) FROM ?', [
-				initialData,
-			]);
+			await alasql.promise(
+				'SELECT * INTO XLSX("' + __dirname + '/test107-B-self.xlsx", {headers:true}) FROM ?',
+				[initialData]
+			);
 
 			// Then update it in place
 			var newData = [{value: 999, status: 'updated'}];
-			alasql(
-				'SELECT * INTO XLSX("' +
-					__dirname +
-					'/test107-B-self.xlsx", {sourcefilename:"' +
-					__dirname +
-					'/test107-B-self.xlsx", sheetid:"Sheet 1", range:"D10", headers:true}) FROM ?',
-				[newData],
-				function (res) {
-					assert(res == 1);
-					assert(fs.existsSync(__dirname + '/test107-B-self.xlsx'));
-					// Read back and verify both original and new data exist
-					alasql(
-						'SELECT * FROM XLSX("' +
-							__dirname +
-							'/test107-B-self.xlsx", {headers:true, sheetid:"Sheet 1", range:"A1:B2"})',
-						[],
-						function (original) {
-							// Original data should be at A1:B1
-							var expectedOriginal = [{name: 'John', age: 25}];
-							assert.deepStrictEqual(original, expectedOriginal);
-							// Read the new data at D10:E10
-							alasql(
-								'SELECT * FROM XLSX("' +
-									__dirname +
-									'/test107-B-self.xlsx", {headers:true, sheetid:"Sheet 1", range:"D10:E11"})',
-								[],
-								function (updated) {
-									var expectedUpdated = [{value: 999, status: 'updated'}];
-									assert.deepStrictEqual(updated, expectedUpdated);
-									done();
-								}
-							);
-						}
-					);
-				}
-			);
+			await new Promise(function (done) {
+				alasql(
+					'SELECT * INTO XLSX("' +
+						__dirname +
+						'/test107-B-self.xlsx", {sourcefilename:"' +
+						__dirname +
+						'/test107-B-self.xlsx", sheetid:"Sheet 1", range:"D10", headers:true}) FROM ?',
+					[newData],
+					function (res) {
+						assert(res == 1);
+						assert(fs.existsSync(__dirname + '/test107-B-self.xlsx'));
+						// Read back and verify both original and new data exist
+						alasql(
+							'SELECT * FROM XLSX("' +
+								__dirname +
+								'/test107-B-self.xlsx", {headers:true, sheetid:"Sheet 1", range:"A1:B2"})',
+							[],
+							function (original) {
+								// Original data should be at A1:B1
+								var expectedOriginal = [{name: 'John', age: 25}];
+								assert.deepStrictEqual(original, expectedOriginal);
+								// Read the new data at D10:E10
+								alasql(
+									'SELECT * FROM XLSX("' +
+										__dirname +
+										'/test107-B-self.xlsx", {headers:true, sheetid:"Sheet 1", range:"D10:E11"})',
+									[],
+									function (updated) {
+										var expectedUpdated = [{value: 999, status: 'updated'}];
+										assert.deepStrictEqual(updated, expectedUpdated);
+										done();
+									}
+								);
+							}
+						);
+					}
+				);
+			});
 		});
 
 		it('5. Add data to new sheet in existing file', function (done) {

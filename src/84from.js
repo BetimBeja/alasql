@@ -439,19 +439,6 @@ function XLSXLSX(X, filename, opts, cb, idx, query) {
 	}
 	var res;
 
-	/**
-	 * see https://github.com/SheetJS/js-xlsx/blob/5ae6b1965bfe3764656a96f536b356cd1586fec7/README.md
-	 * for example of using readAsArrayBuffer under `Parsing Workbooks`
-	 */
-	function fixdata(data) {
-		var o = '',
-			l = 0,
-			w = 10240;
-		for (; l < data.byteLength / w; ++l)
-			o += String.fromCharCode.apply(null, new Uint8Array(data.slice(l * w, l * w + w)));
-		o += String.fromCharCode.apply(null, new Uint8Array(data.slice(l * w)));
-		return o;
-	}
 	function getHeaderText(text) {
 		// if casesensitive option is set to false and there is a text value return lowercase value of text
 		if (text && alasql.options.casesensitive === false) {
@@ -525,88 +512,75 @@ function XLSXLSX(X, filename, opts, cb, idx, query) {
 		return sheetRes;
 	}
 
-	filename = alasql.utils.autoExtFilename(filename, 'xls', opts);
+	filename = alasql.utils.autoExtFilename(filename, 'xlsx', opts);
 	alasql.utils.loadBinaryFile(
 		filename,
-		!!cb,
+		true,
 		function (data) {
-			//	function processData(data) {
-			if (data instanceof ArrayBuffer) {
-				var arr = fixdata(data);
-				var workbook = X.read(btoa(arr), {
-					type: 'base64',
-					...alasql.options.excel,
-					...opts,
-				});
-			} else {
-				var workbook = X.read(data, {
-					type: 'binary',
-					...alasql.options.excel,
-					...opts,
-				});
-			}
-
-			// Check if we should process multiple sheets
-			var shouldProcessMultipleSheets =
-				opt.sheetid === '*' || (Array.isArray(opt.sheetid) && opt.sheetid.length > 0);
-
-			if (shouldProcessMultipleSheets) {
-				// Process multiple sheets and combine into a single array
-				res = [];
-				var sheetsToProcess = opt.sheetid === '*' ? workbook.SheetNames : opt.sheetid;
-
-				for (var s = 0; s < sheetsToProcess.length; s++) {
-					var currentSheetId =
-						opt.sheetid === '*'
-							? sheetsToProcess[s]
-							: typeof sheetsToProcess[s] === 'number'
-								? workbook.SheetNames[sheetsToProcess[s]]
-								: sheetsToProcess[s];
-
-					if (workbook.Sheets[currentSheetId]) {
-						var sheetData = processSheet(workbook, currentSheetId, opt);
-						// Add sheet name to each row
-						for (var r = 0; r < sheetData.length; r++) {
-							sheetData[r]._sheet = currentSheetId;
-						}
-						res = res.concat(sheetData);
-					}
-				}
-			} else {
-				// Process single sheet (original behavior)
-				var sheetid;
-				if (typeof opt.sheetid === 'undefined') {
-					sheetid = workbook.SheetNames[0];
-				} else if (typeof opt.sheetid === 'number') {
-					sheetid = workbook.SheetNames[opt.sheetid];
-				} else {
-					sheetid = opt.sheetid;
-				}
-				res = processSheet(workbook, sheetid, opt);
-			}
-
-			if (cb) {
-				res = cb(res, idx, query);
-			}
+			// Errors thrown by the query callback must not be reported as read errors
+			xlsxReadWorkbook(X, data, {...alasql.options.excel, ...opts}).then(
+				processWorkbook,
+				reportError
+			);
 		},
-		function (err) {
-			if (query && query.cb) {
-				query.cb(null, err);
-				return;
-			}
-			throw err;
-		}
+		reportError
 	);
 
 	return res;
-}
 
-alasql.from.XLS = function (filename, opts, cb, idx, query) {
-	opts = opts || {};
-	filename = alasql.utils.autoExtFilename(filename, 'xls', opts);
-	opts.autoExt = false;
-	return XLSXLSX(getXLSX(), filename, opts, cb, idx, query);
-};
+	function reportError(err) {
+		if (query && query.cb) {
+			query.cb(null, err);
+			return;
+		}
+		throw err;
+	}
+
+	function processWorkbook(workbook) {
+		// Check if we should process multiple sheets
+		var shouldProcessMultipleSheets =
+			opt.sheetid === '*' || (Array.isArray(opt.sheetid) && opt.sheetid.length > 0);
+
+		if (shouldProcessMultipleSheets) {
+			// Process multiple sheets and combine into a single array
+			res = [];
+			var sheetsToProcess = opt.sheetid === '*' ? workbook.SheetNames : opt.sheetid;
+
+			for (var s = 0; s < sheetsToProcess.length; s++) {
+				var currentSheetId =
+					opt.sheetid === '*'
+						? sheetsToProcess[s]
+						: typeof sheetsToProcess[s] === 'number'
+							? workbook.SheetNames[sheetsToProcess[s]]
+							: sheetsToProcess[s];
+
+				if (workbook.Sheets[currentSheetId]) {
+					var sheetData = processSheet(workbook, currentSheetId, opt);
+					// Add sheet name to each row
+					for (var r = 0; r < sheetData.length; r++) {
+						sheetData[r]._sheet = currentSheetId;
+					}
+					res = res.concat(sheetData);
+				}
+			}
+		} else {
+			// Process single sheet (original behavior)
+			var sheetid;
+			if (typeof opt.sheetid === 'undefined') {
+				sheetid = workbook.SheetNames[0];
+			} else if (typeof opt.sheetid === 'number') {
+				sheetid = workbook.SheetNames[opt.sheetid];
+			} else {
+				sheetid = opt.sheetid;
+			}
+			res = processSheet(workbook, sheetid, opt);
+		}
+
+		if (cb) {
+			res = cb(res, idx, query);
+		}
+	}
+}
 
 alasql.from.XLSX = function (filename, opts, cb, idx, query) {
 	opts = opts || {};
@@ -615,9 +589,14 @@ alasql.from.XLSX = function (filename, opts, cb, idx, query) {
 	return XLSXLSX(getXLSX(), filename, opts, cb, idx, query);
 };
 
-alasql.from.ODS = function (filename, opts, cb, idx, query) {
-	opts = opts || {};
-	filename = alasql.utils.autoExtFilename(filename, 'ods', opts);
-	opts.autoExt = false;
-	return XLSXLSX(getXLSX(), filename, opts, cb, idx, query);
+// Legacy binary .xls and OpenDocument .ods files are not supported by openxmlsdkts
+alasql.from.XLS = alasql.from.ODS = function (filename, opts, cb, idx, query) {
+	var err = new Error(
+		'Reading XLS and ODS files is not supported. Save the file as XLSX and use XLSX() instead'
+	);
+	if (query && query.cb) {
+		query.cb(null, err);
+		return;
+	}
+	throw err;
 };

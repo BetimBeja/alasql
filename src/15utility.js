@@ -1404,25 +1404,34 @@ utils.findAlaSQLPath = function () {
 	return '';
 };
 
+/**
+	Get the openxmlsdkts library used for XLSX import and export.
+	In Node the bundled dist/openxmlsdkts.js is used. In the browser include
+	dist/openxmlsdkts.min.js (global `openxmlsdkts`) or call alasql.setXLSX(openxmlsdkts).
+*/
 var getXLSX = function () {
-	var XLSX = alasql.private.externalXlsxLib || utils.global.XLSX || null;
+	var ox = alasql.private.externalXlsxLib || utils.global.openxmlsdkts || null;
 
-	if (XLSX) {
-		return XLSX;
-	}
-
-	if (utils.isNode || utils.isBrowserify || utils.isMeteorServer) {
+	if (!ox && (utils.isNode || utils.isBrowserify || utils.isMeteorServer)) {
 		//*not-for-browser/*
-		XLSX = require('../modules/xlsx/xlsx') || null;
-		alasql.private.externalXlsxLib = XLSX;
+		ox = require('./openxmlsdkts.js');
+		alasql.private.externalXlsxLib = ox;
 		//*/
 	}
 
-	if (!XLSX) {
-		throw new Error('Please include the xlsx.js library');
+	if (!ox) {
+		throw new Error(
+			'Please include the openxmlsdkts library (dist/openxmlsdkts.min.js) or provide it with alasql.setXLSX()'
+		);
 	}
 
-	return XLSX;
+	if (!ox.SmlPackage) {
+		throw new Error(
+			'The XLSX library must be openxmlsdkts. SheetJS (xlsx) is no longer supported by alasql.setXLSX()'
+		);
+	}
+
+	return ox;
 };
 
 /**

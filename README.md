@@ -26,7 +26,7 @@ This library is perfect for:
 - Easy ETL and options for persistence by data import / manipulation / export of several formats
 - All major browsers, Node.js, and mobile applications
 
-We focus on [speed](https://github.com/alasql/alasql/wiki/Speed) by taking advantage of the dynamic nature of JavaScript when building up queries. Real-world solutions demand flexibility regarding where data comes from and where it is to be stored. We focus on flexibility by making sure you can [import/export](https://github.com/alasql/alasql/wiki/Import-export) and query directly on data stored in Excel (both `.xls` and `.xlsx`), CSV, JSON, TAB, IndexedDB, LocalStorage, and SQLite files.
+We focus on [speed](https://github.com/alasql/alasql/wiki/Speed) by taking advantage of the dynamic nature of JavaScript when building up queries. Real-world solutions demand flexibility regarding where data comes from and where it is to be stored. We focus on flexibility by making sure you can [import/export](https://github.com/alasql/alasql/wiki/Import-export) and query directly on data stored in Excel (`.xlsx`), CSV, JSON, TAB, IndexedDB, LocalStorage, and SQLite files.
 
 The library adds the comfort of a full database engine to your JavaScript app. No, really - it's working towards a full database engine complying with [most of the SQL-99 language](https://github.com/alasql/alasql/wiki/Supported-SQL-statements), spiced up with additional syntax for NoSQL (schema-less) data and graph networks.
 
@@ -67,10 +67,10 @@ var res = alasql('SELECT a, SUM(b) AS b FROM ? GROUP BY a', [data]);
 ```js
 // file is read asynchronously (Promise returned when SQL given as array)
 alasql([
-	'SELECT * FROM XLS("./data/mydata") WHERE lastname LIKE "A%" and city = "London" GROUP BY name ',
+	'SELECT * FROM XLSX("./data/mydata") WHERE lastname LIKE "A%" and city = "London" GROUP BY name ',
 ])
 	.then(function (res) {
-		console.log(res); // output depends on mydata.xls
+		console.log(res); // output depends on mydata.xlsx
 	})
 	.catch(function (err) {
 		console.log('Does the file exist? There was an error:', err);
@@ -118,6 +118,12 @@ For the browsers: include [alasql.min.js](https://cdn.jsdelivr.net/npm/alasql)
 
 ```html
 <script src="https://cdn.jsdelivr.net/npm/alasql@4"></script>
+```
+
+To import or export XLSX files in the browser, also include `openxmlsdkts.min.js` from the `dist` folder of the package:
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/alasql/dist/openxmlsdkts.min.js"></script>
 ```
 
 ## Getting started
@@ -299,6 +305,18 @@ AlaSQL plays nice with d3.js and gives you a convenient way to integrate a speci
 
 AlaSQL can export data to both [Excel 2003 (.xls)](https://github.com/alasql/alasql/wiki/XLS) and [Excel 2007 (.xlsx)](https://github.com/alasql/alasql/wiki/XLSX) formats with coloring of cells and other Excel formatting functions.
 
+XLSX files are read and written with [openxmlsdkts](https://github.com/EricWhiteDev/OpenXmlSdkTs). Please note:
+
+- Importing and exporting XLSX is asynchronous. Use `alasql.promise()` or pass a callback; `SELECT ... INTO XLSX(...)` without a callback throws an error.
+- `SELECT * INTO XLSX() FROM ?` without a filename returns the content of the file as a `Uint8Array`.
+- Only `.xlsx` files can be read. `FROM XLS()` (legacy binary `.xls`) and `FROM ODS()` throw an error: save the file as `.xlsx` first.
+- In Node the library is bundled with AlaSQL. In the browser include `dist/openxmlsdkts.min.js`, or provide the module with `alasql.setXLSX(openxmlsdkts)`.
+
+```js
+const rows = await alasql.promise('SELECT * FROM XLSX("data.xlsx", {sheetid: "Sheet1"})');
+await alasql.promise('SELECT * INTO XLSX("out.xlsx", {headers: true}) FROM ?', [rows]);
+```
+
 ### AlaSQL ♥ Meteor
 
 Meteor is amazing. You can query directly on your Meteor collections with SQL - simple and easy. See more about [Meteor and AlaSQL in the wiki](https://github.com/alasql/alasql/wiki/Meteor)
@@ -419,11 +437,8 @@ Here's a list of modules that AlaSQL may require in certain environments or for 
 - Vertx
   - vertx
 - Agonostic
-  - XLSX/XLS support
-    - cptable
-    - jszip
-    - xlsx
-    - cpexcel
+  - XLSX support
+    - openxmlsdkts (bundled as `dist/openxmlsdkts.js`)
   - es6-promise
 
 #### Webpack
@@ -481,12 +496,12 @@ var b = browserify("./main.js").bundle();
 
 #### Vue
 
-For some frameworks (like Vue) alasql can't access XLSX by it self. We recommend handling it by including AlaSQL the following way:
+For some frameworks (like Vue) alasql can't access the XLSX library by it self. We recommend handling it by including AlaSQL the following way:
 
-```import alasql from 'alasql';
-import XLSX from 'xlsx';
-alasql.utils.isBrowserify = false;
-alasql.utils.global.XLSX = XLSX;
+```js
+import alasql from 'alasql';
+import * as openxmlsdkts from 'openxmlsdkts';
+alasql.setXLSX(openxmlsdkts);
 ```
 
 #### jQuery
@@ -685,7 +700,8 @@ Many thanks to:
 - Zach Carter for [Jison parser-generator](https://github.com/zaach/jison)
 - Andrew Kent for [JS SQL Parser](https://github.com/forward/sql-parser)
 - Eli Grey for [FileSaver.js](https://github.com/eligrey/FileSaver.js)
-- [SheetJS](https://sheetjs.com) for [JS XLSX Library](https://github.com/SheetJS/js-xlsx)
+- Eric White for [openxmlsdkts](https://github.com/EricWhiteDev/OpenXmlSdkTs)
+- [SheetJS](https://sheetjs.com) for [JS XLSX Library](https://github.com/SheetJS/js-xlsx), used for XLSX support until version 4
 
 and other people for useful tools, which make our work much easier.
 

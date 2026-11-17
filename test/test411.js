@@ -236,8 +236,8 @@ describe('Test 411 Export to Excel', function () {
 		done();
 	});
 
-	it('2. ANALYZE object', function (done) {
-		var res = alasql(
+	it('2. ANALYZE object', async function () {
+		var res = await alasql.promise(
 			'SEARCH / AS @a \
         UNION ALL( \
           introduction AS @b \
@@ -265,7 +265,6 @@ describe('Test 411 Export to Excel', function () {
 		);
 		//console.log(res);
 		assert(res == 1);
-		done();
 	});
 
 	it('99. DROP DATABASE', function (done) {

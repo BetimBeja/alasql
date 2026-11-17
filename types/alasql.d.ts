@@ -1,8 +1,6 @@
 // Project: https://github.com/alasql/alasql
 
 declare module 'alasql' {
-	import * as xlsx from 'xlsx';
-
 	// Callback with error-first convention and optional data
 	export interface AlaSQLCallback<T = unknown> {
 		(err: Error | null, data?: T): void;
@@ -36,7 +34,12 @@ declare module 'alasql' {
 		oracle: boolean;
 		sqlite: boolean;
 		orientdb: boolean;
-		excel?: xlsx.WorkBook; // now typed
+		excel?: AlaSQLExcelOptions; // options for XLSX import
+	}
+
+	// Options for XLSX import (alasql.options.excel, or the second parameter of XLSX())
+	export interface AlaSQLExcelOptions {
+		cellDates?: boolean; // return date formatted cells as Date objects instead of Excel serial numbers (default true)
 	}
 
 	// compiled Statement
@@ -247,7 +250,11 @@ declare module 'alasql' {
 		aggr: userAggregatorLookUp;
 		autoval(tablename: string, colname: string, getNext?: boolean): number;
 		yy: {};
-		setXLSX(xlsxlib: typeof xlsx): void;
+		/**
+		 * Provide the openxmlsdkts module used for XLSX import and export,
+		 * for example in browsers or bundlers: `alasql.setXLSX(await import('openxmlsdkts'))`
+		 */
+		setXLSX(openxmlsdkts: unknown): void;
 		Database: {
 			new (databaseid?: string): Database;
 		};

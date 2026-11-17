@@ -137,6 +137,7 @@ alasql.options = {
 	/** Check for NaN and convert it to undefined */
 	nan: false,
 
+	/** Options for XLSX import. cellDates: return date formatted cells as Date objects */
 	excel: {cellDates: true},
 
 	/** Option for SELECT * FROM a,b */
@@ -188,8 +189,12 @@ alasql.private = {
 	externalXlsxLib: null,
 };
 
-alasql.setXLSX = function (XLSX) {
-	alasql.private.externalXlsxLib = XLSX;
+/**
+	Provide the openxmlsdkts module used for XLSX import and export
+	@param {object} openxmlsdkts The openxmlsdkts module
+*/
+alasql.setXLSX = function (openxmlsdkts) {
+	alasql.private.externalXlsxLib = openxmlsdkts;
 };
 
 /**

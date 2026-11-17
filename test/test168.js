@@ -67,59 +67,18 @@ describe('Test 168a - read XLSX', function () {
 });
 
 describe('Test 168b - read XLS', function () {
-	it('1. Read XLS file', function (done) {
-		var res = alasql(
-			'select * from xls("' + dirname + '/test168.xls",{headers:false})',
-			[],
-			function (res) {
-				assert(res.length == 6);
-				//			console.log(res);
-				done();
-			}
+	// Legacy binary .xls files are not supported since XLSX support moved to openxmlsdkts
+	it('1. Reading XLS files is rejected with a clear error', async function () {
+		await assert.rejects(
+			alasql.promise('select * from xls("' + dirname + '/test168.xls",{headers:false})'),
+			/Reading XLS and ODS files is not supported/
 		);
 	});
 
-	it('2. Read XLS file with Headers', function (done) {
-		var res = alasql(
-			'select column City from xls("' +
-				dirname +
-				'/test168.xls",{headers:true})\
-				where Population > 10000000 order by City',
-			[],
-			function (res) {
-				assert.deepStrictEqual(res, ['Mexico', 'Moscow']);
-				done();
-			}
-		);
-	});
-
-	it('3. Read XLS file with Headers and range', function (done) {
-		var res = alasql(
-			'select column City from xls("' +
-				dirname +
-				'/test168.xls",{headers:true, range:"A1:B3"})\
-				where Population > 10000000 order by City',
-			[],
-			function (res) {
-				//					console.log(res);
-				assert.deepStrictEqual(res, ['Moscow']);
-				done();
-			}
-		);
-	});
-
-	it('4. Read XLS file with Headers and sheet', function (done) {
-		var res = alasql(
-			'select column City from xls("' +
-				dirname +
-				'/test168.xls",{headers:true, sheetid: "USA", range:"A1:B6"})\
-				where Population > 10000000 order by City',
-			[],
-			function (res) {
-				//					console.log(res);
-				assert.deepStrictEqual(res, ['New York']);
-				done();
-			}
+	it('2. Reading ODS files is rejected with a clear error', async function () {
+		await assert.rejects(
+			alasql.promise('select * from ods("' + dirname + '/test168.ods")'),
+			/Reading XLS and ODS files is not supported/
 		);
 	});
 });

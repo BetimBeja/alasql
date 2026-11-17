@@ -9,7 +9,7 @@ module.exports = {
 		tests:
 			'25,000 rows written as CSV (returned as a string, no file) and as XLSX (written to a temporary file).',
 		why: 'Export is one of the most used alasql features in browsers and Node. Converting the data twice on the way out costs time and memory.',
-		read: 'Time and heap growth per export. XLSX depends on the xlsx package version the release uses.',
+		read: 'Time and heap growth per export. XLSX depends on the library the release uses: SheetJS (xlsx) up to 4.23, then openxmlsdkts. XLSX export is timed until the file is written, through alasql.promise, which also works for the older synchronous releases.',
 	},
 	setup: g => {
 		const rows = [];
@@ -28,8 +28,10 @@ module.exports = {
 		{
 			name: 'XLSX into a file',
 			sql: 'SELECT * INTO XLSX("<tmp>.xlsx", {headers:true}) FROM ?',
+			// XLSX export is asynchronous since openxmlsdkts; alasql.promise also works for older releases
+			async: true,
 			run: (alasql, c) =>
-				alasql(`SELECT * INTO XLSX("${file.replace(/\\/g, '/')}", {headers:true}) FROM ?`, [
+				alasql.promise(`SELECT * INTO XLSX("${file.replace(/\\/g, '/')}", {headers:true}) FROM ?`, [
 					c.rows,
 				]),
 			heap: true,

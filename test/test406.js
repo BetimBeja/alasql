@@ -42,10 +42,10 @@ describe('Test 406. Complex SEARCH', function () {
 		},
 	};
 
-	it('1. Parse complex JSON', function (done) {
+	it('1. Parse complex JSON', async function () {
 		//      alasql('CREATE INDEXEDDB DATABASE IF NOT EXISTS geo;')
 		if (typeof exports == 'object') {
-			var res = alasql(
+			var res = await alasql.promise(
 				'SEARCH KEYS() AS @a EX($0->(_)) AS @b \
         KEYS() AS @c EX(@b->(_)) AS @e \
         {a:(@a),c:(@c), [value]:(@e->[value]), id:(@e->id)} \
@@ -85,8 +85,6 @@ describe('Test 406. Complex SEARCH', function () {
 			{a: '20', c: '100', value: 23, id: 1},
 			{a: '20', c: '150', value: 56, id: 3},
 		]);
-
-		done();
 	});
 
 	it('2. With OF()', function (done) {

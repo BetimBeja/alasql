@@ -230,68 +230,75 @@ for (const [name, sql, params, fixedIters] of selected) {
 	queries[name] = iters * rounds.length;
 }
 
-// dimensions
-const status = {};
-if (wantDims.length) {
-	const fs = require('fs');
-	const {run} = require('./dimensions/run');
-	const store = fs.existsSync(expectedFile)
-		? JSON.parse(fs.readFileSync(expectedFile, 'utf8'))
-		: {digests: {}};
-	const record = args.includes('--record');
-	let sink = 0;
-	for (const d of wantDims) {
-		const r = run(alasql, d, record ? null : store.digests, onlyCases, SCALE);
-		Object.assign(queries, r.queries);
-		Object.assign(results, r.results);
-		Object.assign(status, r.status);
-		sink ^= r.sink;
+// dimensions (async: some cases, like XLSX export, are asynchronous)
+async function main() {
+	const status = {};
+	if (wantDims.length) {
+		const fs = require('fs');
+		const {run} = require('./dimensions/run');
+		const store = fs.existsSync(expectedFile)
+			? JSON.parse(fs.readFileSync(expectedFile, 'utf8'))
+			: {digests: {}};
+		const record = args.includes('--record');
+		let sink = 0;
+		for (const d of wantDims) {
+			const r = await run(alasql, d, record ? null : store.digests, onlyCases, SCALE);
+			Object.assign(queries, r.queries);
+			Object.assign(results, r.results);
+			Object.assign(status, r.status);
+			sink ^= r.sink;
+			if (record) {
+				Object.assign(store.digests, r.digests);
+				for (const k of Object.keys(r.status))
+					if (r.status[k].startsWith('error')) delete store.digests[k];
+			}
+		}
 		if (record) {
-			Object.assign(store.digests, r.digests);
-			for (const k of Object.keys(r.status))
-				if (r.status[k].startsWith('error')) delete store.digests[k];
+			store.recordedWith = `alasql ${alasql.version} (${require('path').resolve(distPath)})`;
+			store.digests = Object.fromEntries(Object.entries(store.digests).sort());
+			fs.writeFileSync(expectedFile, JSON.stringify(store, null, '\t') + '\n');
+			console.error(`expected.json: ${Object.keys(store.digests).length} digests`);
+		}
+		if (sink === 0.5) console.error(sink); // keeps the sink alive
+		for (const k of Object.keys(status)) if (status[k] === 'unchecked' && record) delete status[k];
+	}
+
+	const meta = {
+		dist: distPath,
+		version: alasql.version,
+		runtime: typeof Bun !== 'undefined' ? 'bun ' + Bun.version : 'node ' + process.version,
+		rows: ROWS,
+		rounds: ROUNDS,
+		scale: SCALE,
+		date: new Date().toISOString().slice(0, 10),
+	};
+
+	if (json) {
+		console.log(
+			JSON.stringify(
+				Object.keys(status).length ? {meta, results, status, queries} : {meta, results, queries},
+				null,
+				2
+			)
+		);
+	} else {
+		console.log(
+			`alasql ${meta.version} | ${meta.runtime} | ${meta.rows} rows | median of ${meta.rounds} rounds | ${meta.dist}`
+		);
+		for (const [name, ms] of Object.entries(results)) {
+			console.log(
+				name.padEnd(name.length > 34 ? 60 : 34),
+				ms === null
+					? '     n/a'
+					: ms >= 1
+						? ms.toFixed(2).padStart(8) + ' ms/op'
+						: (ms * 1000).toFixed(1).padStart(8) + ' us/op'
+			);
 		}
 	}
-	if (record) {
-		store.recordedWith = `alasql ${alasql.version} (${require('path').resolve(distPath)})`;
-		store.digests = Object.fromEntries(Object.entries(store.digests).sort());
-		fs.writeFileSync(expectedFile, JSON.stringify(store, null, '\t') + '\n');
-		console.error(`expected.json: ${Object.keys(store.digests).length} digests`);
-	}
-	if (sink === 0.5) console.error(sink); // keeps the sink alive
-	for (const k of Object.keys(status)) if (status[k] === 'unchecked' && record) delete status[k];
 }
 
-const meta = {
-	dist: distPath,
-	version: alasql.version,
-	runtime: typeof Bun !== 'undefined' ? 'bun ' + Bun.version : 'node ' + process.version,
-	rows: ROWS,
-	rounds: ROUNDS,
-	scale: SCALE,
-	date: new Date().toISOString().slice(0, 10),
-};
-
-if (json) {
-	console.log(
-		JSON.stringify(
-			Object.keys(status).length ? {meta, results, status, queries} : {meta, results, queries},
-			null,
-			2
-		)
-	);
-} else {
-	console.log(
-		`alasql ${meta.version} | ${meta.runtime} | ${meta.rows} rows | median of ${meta.rounds} rounds | ${meta.dist}`
-	);
-	for (const [name, ms] of Object.entries(results)) {
-		console.log(
-			name.padEnd(name.length > 34 ? 60 : 34),
-			ms === null
-				? '     n/a'
-				: ms >= 1
-					? ms.toFixed(2).padStart(8) + ' ms/op'
-					: (ms * 1000).toFixed(1).padStart(8) + ' us/op'
-		);
-	}
-}
+main().catch(e => {
+	console.error(e);
+	process.exit(1);
+});

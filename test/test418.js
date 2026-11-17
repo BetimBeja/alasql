@@ -51,18 +51,6 @@ describe('Test ' + test + ' Load data from internet', function () {
 		});
 	});
 
-	describe('.xls from URL', function () {
-		var url = baseUrl + '/test/test168.xls';
-
-		it('Load http', function (done) {
-			testRequest(5, 'http://' + url, 'true', done);
-		});
-
-		it('Load https', function (done) {
-			testRequest(5, 'https://' + url, 'true', done);
-		});
-	});
-
 	describe('.json from URL', function () {
 		var url = baseUrl + '/test/test157.json';
 

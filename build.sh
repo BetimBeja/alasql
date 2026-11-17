@@ -172,6 +172,18 @@ x esbuild --minify --outfile="$outfile_min" "$outfile" --allow-overwrite
 
 
 
+echo '\nBundle openxmlsdkts (used for XLSX import and export)'
+# openxmlsdkts is published as ESM with extensionless imports, so it is bundled into
+# a CommonJS file for Node and an IIFE exposing the global `openxmlsdkts` for browsers
+oxbanner='/*! Bundled for AlaSQL XLSX support: openxmlsdkts and ltxmlts (MIT, Eric White), jszip (MIT, dual licensed MIT or GPL-3.0-or-later), pako (MIT and Zlib), sax (BlueOak-1.0.0, https://blueoakcouncil.org/license/1.0.0), lie, immediate, setimmediate, readable-stream and its dependencies (MIT or ISC). See the license of each package on npmjs.com */'
+x esbuild src/openxmlsdkts-bundle.js --bundle --minify --format=cjs --platform=node \
+	--banner:js="$oxbanner" --outfile=dist/openxmlsdkts.js --log-level=warning
+x esbuild src/openxmlsdkts-bundle.js --bundle --minify --format=iife --platform=browser \
+	--global-name=openxmlsdkts --alias:fs=./src/browser-fs-stub.js \
+	--banner:js="$oxbanner" --outfile=dist/openxmlsdkts.min.js --log-level=warning
+
+
+
 echo '\nBuild precompile files'
 mkdir -p dist/precompile
 
